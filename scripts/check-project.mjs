@@ -5,7 +5,8 @@ import ts from 'typescript';
 const files = [
   'vite.config.js','src/main.jsx','src/App.jsx','src/lib/supabase.js',
   'src/components/UI.jsx','src/components/Auth.jsx',
-  'src/components/Dashboard.jsx','src/components/Classroom.jsx','src/components/BoardEditor.jsx',
+  'src/components/Dashboard.jsx','src/components/Classroom.jsx','src/components/ClassMeeting.jsx','src/components/BoardEditor.jsx',
+  'src/lib/meetingUtils.js',
 ];
 let errors = 0;
 for (const file of files) {

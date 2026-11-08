@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, ChevronDown, Clipboard, GraduationCap, Hash, LayoutGrid, Lock, Menu, Unlock, UsersRound, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, ChevronDown, Clipboard, GraduationCap, Hash, LayoutGrid, Lock, Menu, Unlock, UsersRound, X, Presentation, Palette } from 'lucide-react';
 import { supabase, errText } from '../lib/supabase.js';
 import { Initials, Logo, Spinner } from './UI.jsx';
 import BoardEditor from './BoardEditor.jsx';
+import ClassMeeting from './ClassMeeting.jsx';
 
 export default function Classroom({ room, profile, onBack, notify }) {
   const teacher = profile.role === 'teacher';
@@ -13,6 +14,7 @@ export default function Classroom({ room, profile, onBack, notify }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [connected, setConnected] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState('whiteboard');
 
   const loadBoards = useCallback(async () => {
     const { data, error } = await supabase.from('boards').select('*').eq('room_id', room.id).order('created_at');
@@ -55,13 +57,14 @@ export default function Classroom({ room, profile, onBack, notify }) {
     try { await navigator.clipboard.writeText(room.join_code); setCopied(true); setTimeout(() => setCopied(false), 1800); }
     catch { notify('Mã lớp: ' + room.join_code, 'info'); }
   }
-  function selectBoard(id) { setSelectedId(id); setSidebarOpen(false); }
+  function selectBoard(id) { setSelectedId(id); setWorkspaceMode('whiteboard'); setSidebarOpen(false); }
 
   return <div className="classroom-shell">
     <aside className={'class-sidebar ' + (sidebarOpen ? 'mobile-open' : '')}>
       <div className="class-brand"><Logo/><button className="icon-btn mobile-only" onClick={() => setSidebarOpen(false)} aria-label="Ẩn danh sách bảng"><X size={19}/></button></div>
       <button className="back-overview" onClick={onBack}><ArrowLeft size={17}/> Về danh sách lớp</button>
       <div className="class-room-info"><div className="mini-caption">LỚP HỌC HIỆN TẠI</div><h2>{room.name}</h2><button className="invite-code" onClick={copyInvite} title="Sao chép mã lớp"><Hash size={15}/>{room.join_code}{copied ? <Check size={15}/> : <Clipboard size={15}/>}</button></div>
+      <div className="class-meeting-switch"><button className={workspaceMode === 'whiteboard' ? 'active' : ''} onClick={() => {setWorkspaceMode('whiteboard');setSidebarOpen(false);}}><Palette size={17}/> Bảng trắng</button><button className={workspaceMode === 'meeting' ? 'active' : ''} onClick={() => {setWorkspaceMode('meeting');setSidebarOpen(false);}}><Presentation size={17}/> Sinh hoạt lớp <span>NEW</span></button></div>
       <div className="class-boards-caption"><span>DANH SÁCH BẢNG</span><span>{boards.length}</span></div>
       {loading ? <Spinner label="Đang tải bảng..."/> : <nav className="board-nav">
         {boards.filter(b => b.kind === 'shared').map(b => <button key={b.id} className={'board-nav-item ' + (b.id === selectedId ? 'selected' : '')} onClick={() => selectBoard(b.id)}><span className="nav-board-icon shared"><UsersRound size={19}/></span><span><strong>Bảng chung</strong><small>Mọi thành viên trong lớp</small></span>{b.is_locked && <Lock size={14} className="nav-lock"/>}</button>)}
@@ -73,8 +76,8 @@ export default function Classroom({ room, profile, onBack, notify }) {
     </aside>
     {sidebarOpen && <button className="sidebar-scrim" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu"/>}
     <main className="class-workspace">
-      <header className="class-topbar"><div className="topbar-left"><button className="icon-btn mobile-only" onClick={() => setSidebarOpen(true)} aria-label="Mở danh sách bảng"><Menu size={22}/></button><span className="topbar-name">{room.name}</span><span className="topbar-slash">/</span><strong>{board ? board.kind === 'shared' ? 'Bảng chung' : board.owner_id === profile.id ? 'Bảng của tôi' : students[board.owner_id] || board.title : 'Đang tải...'}</strong></div><div className="topbar-right"><span className={'topbar-status ' + (connected ? 'connected' : '')}><span/>{connected ? 'Đang đồng bộ' : 'Mất kết nối'}</span>{teacher && board && <button className={'lock-action ' + (board.is_locked ? 'locked' : '')} onClick={toggleLock}>{board.is_locked ? <Lock size={16}/> : <Unlock size={16}/>}<span>{board.is_locked ? 'Mở khóa' : 'Khóa bảng'}</span></button>}<Initials name={profile.full_name}/></div></header>
-      {board ? <BoardEditor key={board.id} board={board} room={room} profile={profile} notify={notify} connected={connected}/> : <div className="editor-loading"><Spinner label="Đang chuẩn bị bảng trắng..."/></div>}
+      <header className="class-topbar"><div className="topbar-left"><button className="icon-btn mobile-only" onClick={() => setSidebarOpen(true)} aria-label="Mở danh sách bảng"><Menu size={22}/></button><span className="topbar-name">{room.name}</span><span className="topbar-slash">/</span><strong>{workspaceMode === 'meeting' ? 'Sinh hoạt lớp số' : (board ? board.kind === 'shared' ? 'Bảng chung' : board.owner_id === profile.id ? 'Bảng của tôi' : students[board.owner_id] || board.title : 'Đang tải...')}</strong></div><div className="topbar-right"><span className={'topbar-status ' + (connected ? 'connected' : '')}><span/>{connected ? 'Đang đồng bộ' : 'Mất kết nối'}</span>{workspaceMode === 'whiteboard' && teacher && board && <button className={'lock-action ' + (board.is_locked ? 'locked' : '')} onClick={toggleLock}>{board.is_locked ? <Lock size={16}/> : <Unlock size={16}/>}<span>{board.is_locked ? 'Mở khóa' : 'Khóa bảng'}</span></button>}<Initials name={profile.full_name}/></div></header>
+      {workspaceMode === 'meeting' ? <ClassMeeting room={room} profile={profile} notify={notify}/> : board ? <BoardEditor key={board.id} board={board} room={room} profile={profile} notify={notify} connected={connected}/> : <div className="editor-loading"><Spinner label="Đang chuẩn bị bảng trắng..."/></div>}
     </main>
   </div>;
 }

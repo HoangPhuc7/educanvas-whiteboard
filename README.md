@@ -1,3 +1,9 @@
+# EduCanvas v1.4: Sinh hoạt lớp số
+
+**Tính năng mới:** 6 phiếu sinh hoạt lớp (lớp trưởng, lớp phó, bí thư, tổ 1–3), phân công học sinh, nhập 3 mục, nộp báo cáo, trình chiếu, đồng bộ Supabase. Với project đang dùng, hãy **chạy riêng** `supabase/upgrade_class_meeting_v1_4.sql` rồi cập nhật mã nguồn. Đọc [CAP_NHAT_V1_4_SINH_HOAT_LOP.md](CAP_NHAT_V1_4_SINH_HOAT_LOP.md). **Không chạy lại `supabase/schema.sql` trên database hiện tại.**
+
+---
+
 ## Cập nhật v1.3 — Nhân bản và biến đổi đối tượng
 
 Chọn đối tượng chữ, hình học hoặc nét vẽ rồi **Nhân bản** (Ctrl+D/Cmd+D), di chuyển, kéo các góc để thay đổi kích thước; đổi màu viền/nền, cỡ nét, bo góc trực tiếp. Xem [`CAP_NHAT_V1_3.md`](CAP_NHAT_V1_3.md). Không cần thay đổi Supabase.
