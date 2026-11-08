@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Stage, Layer, Group, Line, Arrow, Rect, Ellipse, Circle as KonvaCircle, Text as CanvasText } from 'react-konva';
-import { AlignCenter, AlignLeft, AlignRight, Bold, Circle, Download, Eraser, Hand, Highlighter, Italic, LockKeyhole, Maximize, MousePointer2, Pencil, RotateCcw, Shapes, Strikethrough, Trash2, Type, Underline, ZoomIn, ZoomOut } from 'lucide-react';
+import { Stage, Layer, Group, Line, Arrow, Rect, Ellipse, Circle as KonvaCircle, Text as CanvasText, Transformer } from 'react-konva';
+import { AlignCenter, AlignLeft, AlignRight, Bold, Circle, Copy, Download, Eraser, Hand, Highlighter, Italic, LockKeyhole, Maximize, MousePointer2, Pencil, RotateCcw, Shapes, Strikethrough, Trash2, Type, Underline, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase, errText } from '../lib/supabase.js';
 import { Modal } from './UI.jsx';
 import { clamp, eraseStroke, polygonPoints, starPoints, strokeSegments, sweepHitsItem } from '../lib/boardGeometry.js';
 import { DEFAULT_TEXT_STYLE, FONT_FAMILIES, readTextStyle, sanitizeTextStyle, konvaTextProps } from '../lib/textFormatting.js';
+import { duplicatePayload, resizePayload, isPayloadTooLarge } from '../lib/itemTransforms.js';
 
 const COLORS = [
   '#6555ED','#191F38','#FFFFFF','#000000','#EF4444','#F97316','#FACC15','#22C55E',
@@ -55,9 +56,10 @@ function shapeStyle(p) {
   };
 }
 
-function ItemShape({item,selected,canMove,tool,onChoose,onMove,onTextEdit}) {
+function ItemShape({item,selected,canMove,tool,onChoose,onMove,onTextEdit,onTransform,registerNode}) {
   const p=item.payload||{};
   const base={
+    ref:registerNode,
     x:p.x||0,y:p.y||0,
     draggable:canMove && tool==='select',
     onPointerDown:e=>{
@@ -66,6 +68,16 @@ function ItemShape({item,selected,canMove,tool,onChoose,onMove,onTextEdit}) {
       // can delete *multiple* objects or split pen strokes across objects.
     },
     onDragEnd:e=>{e.cancelBubble=true;onMove(item,{x:e.target.x(),y:e.target.y()});},
+    onTransformEnd:e=>{
+      e.cancelBubble=true;
+      const node=e.target;
+      const next=resizePayload(item,{
+        x:node.x(),y:node.y(),scaleX:node.scaleX(),scaleY:node.scaleY(),
+        textWidth:item.kind==='text'?node.width():undefined,
+      });
+      node.scale({x:1,y:1});
+      onTransform(item,next);
+    },
     onDblClick:e=>{e.cancelBubble=true;if(item.kind==='text'&&canMove&&tool==='select')onTextEdit(item);},
     onDblTap:e=>{e.cancelBubble=true;if(item.kind==='text'&&canMove&&tool==='select')onTextEdit(item);},
     shadowColor:selected?'#7667e9':'transparent',shadowBlur:selected?9:0,
@@ -203,6 +215,7 @@ export default function BoardEditor({board,profile,notify,connected}) {
   const [syncStatus,setSyncStatus]=useState('loading');
   const [itemsConnected,setItemsConnected]=useState(false);
   const stageRef=useRef(null),hostRef=useRef(null),gestureRef=useRef(null),draftRef=useRef(null),itemsRef=useRef([]);
+  const transformerRef=useRef(null),itemNodesRef=useRef(new Map());
   useEffect(()=>{itemsRef.current=items;},[items]);
 
   useEffect(()=>{
@@ -234,13 +247,24 @@ export default function BoardEditor({board,profile,notify,connected}) {
   },[board.id,notify]);
 
   const editableByMe=useCallback(item=>canWrite&&(teacher||item.created_by===profile.id),[canWrite,teacher,profile.id]);
+  useEffect(()=>{
+    const transformer=transformerRef.current;
+    if(!transformer)return;
+    const item=items.find(i=>i.id===selected);
+    const node=item&&editableByMe(item)&&tool==='select'?itemNodesRef.current.get(item.id):null;
+    transformer.nodes(node?[node]:[]);
+    transformer.getLayer()?.batchDraw();
+  },[items,selected,tool,editableByMe]);
   const addItem=useCallback(async (kind,payload)=>{
-    if(!canWrite)return;
+    if(!canWrite)return null;
+    if(isPayloadTooLarge(payload)){
+      notify('Đối tượng quá lớn để lưu (giới hạn 64 KB).','error');return null;
+    }
     const id=crypto.randomUUID(),optimistic={id,board_id:board.id,created_by:profile.id,kind,payload,deleted_at:null,created_at:new Date().toISOString()};
     setItems(cur=>[...cur,optimistic]);setSyncStatus('saving');
     const {error}=await supabase.from('board_items').insert({id,board_id:board.id,created_by:profile.id,kind,payload});
-    if(error){setItems(cur=>cur.filter(x=>x.id!==id));setSyncStatus('error');notify('Không lưu được: '+errText(error),'error');}
-    else setSyncStatus('saved');
+    if(error){setItems(cur=>cur.filter(x=>x.id!==id));setSyncStatus('error');notify('Không lưu được: '+errText(error),'error');return null;}
+    setSyncStatus('saved');return id;
   },[board.id,profile.id,canWrite,notify]);
   const reloadItems=useCallback(async()=>{
     const {data}=await supabase.from('board_items').select('*').eq('board_id',board.id).is('deleted_at',null).order('created_at',{ascending:true}).limit(2000);
@@ -248,6 +272,9 @@ export default function BoardEditor({board,profile,notify,connected}) {
   },[board.id]);
   const patchItem=useCallback(async(item,patch)=>{
     if(!editableByMe(item))return;
+    if(patch.payload&&isPayloadTooLarge(patch.payload)){
+      notify('Đối tượng quá lớn để lưu (giới hạn 64 KB).','error');return;
+    }
     const updated={...item,...patch};
     setItems(cur=>patch.deleted_at?cur.filter(x=>x.id!==item.id):cur.map(x=>x.id===item.id?updated:x));
     setSyncStatus('saving');
@@ -256,6 +283,15 @@ export default function BoardEditor({board,profile,notify,connected}) {
     else setSyncStatus('saved');
   },[editableByMe,notify,reloadItems]);
   const erase=useCallback(item=>patchItem(item,{deleted_at:new Date().toISOString()}),[patchItem]);
+  const duplicateItem=useCallback(async item=>{
+    if(!item||!editableByMe(item))return;
+    // Creates a new UUID and uses the CURRENT account as owner. Original never changes.
+    const id=await addItem(item.kind,duplicatePayload(item.payload));
+    if(id){setTool('select');setSelected(id);}
+  },[addItem,editableByMe]);
+  const transformItem=useCallback((item,payload)=>{
+    if(editableByMe(item))void patchItem(item,{payload});
+  },[editableByMe,patchItem]);
   const undo=useCallback(()=>{
     const mine=[...items].reverse().find(x=>x.created_by===profile.id&&!x.deleted_at);
     if(mine)erase(mine);else notify('Bạn chưa có nét vẽ nào để hoàn tác.');
@@ -265,13 +301,20 @@ export default function BoardEditor({board,profile,notify,connected}) {
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){
         e.preventDefault();if(canWrite)undo();
       }
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&selected&&!e.repeat&&
+        !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)&&!document.activeElement?.isContentEditable){
+        const item=items.find(x=>x.id===selected);
+        if(item&&editableByMe(item)&&tool==='select'){
+          e.preventDefault();void duplicateItem(item);
+        }
+      }
       if(e.key==='Escape'){setSelected(null);setTextDraft(null);}
       if((e.key==='Delete'||e.key==='Backspace')&&selected&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
         const item=items.find(x=>x.id===selected);if(item&&editableByMe(item))erase(item);
       }
     };
     window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);
-  },[undo,canWrite,selected,items,editableByMe,erase]);
+  },[undo,canWrite,selected,items,editableByMe,erase,tool,duplicateItem]);
 
   function pointerPosition(){
     const pos=stageRef.current?.getRelativePointerPosition();
@@ -359,7 +402,43 @@ export default function BoardEditor({board,profile,notify,connected}) {
     if((d.kind==='rect'&&(p.width<3||p.height<3))||(d.kind==='ellipse'&&(p.radiusX<1.5||p.radiusY<1.5))||(d.kind==='line'&&Math.hypot(p.points[2],p.points[3])<3))return;
     void addItem(d.kind,d.payload);
   }
-  function chooseItem(item){setSelected(item.id);}
+  function chooseItem(item){
+    setSelected(item.id);
+    const p=item.payload||{};
+    setColor(p.color||'#6555ED');
+    setSize(item.kind==='rect'||item.kind==='ellipse'?p.strokeWidth||3:item.kind==='text'?3:p.width||3);
+    if(isFilledShape(item.kind)){
+      setFillColor(p.fillColor||p.color||'#6555ED');
+      setFillLinked(!p.fillColor||p.fillColor===p.color);
+      setFillStyle(p.fillMode||'outline');
+      setFillOpacity(p.fillOpacity??1);
+      setCornerRadius(p.cornerRadius||18);
+    }
+  }
+  function scaleSelected(factor){
+    const item=items.find(i=>i.id===selected);
+    if(!item||!editableByMe(item))return;
+    const node=itemNodesRef.current.get(item.id);
+    const textWidth=item.kind==='text'?node?.width():undefined;
+    void patchItem(item,{payload:resizePayload(item,{scaleX:factor,scaleY:factor,textWidth})});
+  }
+  function applySelectedStyle(patch){
+    const item=items.find(i=>i.id===selected);
+    if(!item||!editableByMe(item))return;
+    void patchItem(item,{payload:{...item.payload,...patch}});
+  }
+  function selectStrokeWidth(width){
+    setSize(width);
+    const item=items.find(i=>i.id===selected);
+    if(!item||item.kind==='text')return;
+    applySelectedStyle(isFilledShape(item.kind)?{strokeWidth:width}:{width});
+  }
+  function selectFillMode(mode){
+    setFillStyle(mode);applySelectedStyle({fillMode:mode});
+  }
+  function selectFillColor(value){
+    setFillColor(value);setFillLinked(false);applySelectedStyle({fillColor:value});
+  }
   function editText(item){
     if(!editableByMe(item))return;
     setTextDraft({item,x:item.payload.x,y:item.payload.y,style:readTextStyle(item.payload)});
@@ -390,7 +469,16 @@ export default function BoardEditor({board,profile,notify,connected}) {
     }
     if(patch.color)setColor(patch.color);
   }
-  function chooseColor(newColor){setColor(newColor);if(fillLinked)setFillColor(newColor);}
+  function chooseColor(newColor){
+    setColor(newColor);
+    if(fillLinked)setFillColor(newColor);
+    const item=items.find(i=>i.id===selected);
+    if(item&&tool==='select'&&editableByMe(item)){
+      const patch={color:newColor};
+      if(isFilledShape(item.kind)&&fillLinked)patch.fillColor=newColor;
+      applySelectedStyle(patch);
+    }
+  }
   function styleSelected(){
     const item=items.find(x=>x.id===selected);if(!item||!editableByMe(item))return;
     const payload={...item.payload,color};
@@ -425,6 +513,7 @@ export default function BoardEditor({board,profile,notify,connected}) {
     setSaving(false);if(error)notify(errText(error),'error');else{setItems([]);notify('Đã xóa toàn bộ nội dung bảng.','success');}
   }
   const pickedItem=items.find(i=>i.id===selected);
+  const selectedEditable=tool==='select'&&!!pickedItem&&editableByMe(pickedItem);
   const showTextControls=tool==='text'||pickedItem?.kind==='text';
   const currentTextStyle=pickedItem?.kind==='text'?readTextStyle(pickedItem.payload):{...textPreset,color};
   const isShape=SHAPE_KEYS.has(tool);
@@ -487,8 +576,23 @@ export default function BoardEditor({board,profile,notify,connected}) {
           </div>
           <div className="style-section"><span className="toolbar-heading">BÁN KÍNH TẨY</span><div className="brush-control"><input type="range" aria-label="Bán kính đầu tẩy" value={eraserRadius} min="3" max="45" onChange={e=>setEraserRadius(Number(e.target.value))}/><span>{eraserRadius}px</span></div></div>
         </>}
-        {pickedItem&&pickedItem.kind!=='text'&&editableByMe(pickedItem)&&<button className="apply-style" title="Áp dụng màu, kiểu tô và độ dày hiện tại cho đối tượng đã chọn" onClick={styleSelected}>Đổi màu hình đang chọn</button>}
+        {pickedItem&&pickedItem.kind!=='text'&&editableByMe(pickedItem)&&tool!=='select'&&<button className="apply-style" title="Áp dụng màu, kiểu tô và độ dày hiện tại cho đối tượng đã chọn" onClick={styleSelected}>Đổi màu hình đang chọn</button>}
       </div>
+      {selectedEditable&&<div className="selection-toolbar" role="group" aria-label="Chỉnh sửa đối tượng đang chọn">
+        <div className="selection-label"><MousePointer2 size={16}/><strong>ĐÃ CHỌN</strong><span>{pickedItem.kind==='text'?'Văn bản':pickedItem.kind==='rect'?'Hình học':pickedItem.kind==='ellipse'?'Hình tròn / elip':pickedItem.kind==='line'?'Đường / mũi tên':'Nét vẽ'}</span></div>
+        <button className="selection-action primary" title="Nhân bản đối tượng (Ctrl+D)" onClick={()=>void duplicateItem(pickedItem)}><Copy size={16}/>Nhân bản</button>
+        <div className="selection-divider"/>
+        <div className="selection-scale"><span>KÍCH THƯỚC</span><button title="Thu nhỏ 20%" aria-label="Thu nhỏ đối tượng" onClick={()=>scaleSelected(.8)}>-</button><button title="Phóng to 25%" aria-label="Phóng to đối tượng" onClick={()=>scaleSelected(1.25)}>+</button></div>
+        {pickedItem.kind!=='text'&&<NumericTextInput label="ĐỘ DÀY NÉT (PX)" value={isFilledShape(pickedItem.kind)?pickedItem.payload.strokeWidth||3:pickedItem.payload.width||3} min={1} max={80} onCommit={selectStrokeWidth}/>}
+        {isFilledShape(pickedItem.kind)&&<>
+          <div className="selection-divider"/>
+          <label className="selection-control"><span>KIỂU TÔ</span><select aria-label="Kiểu tô đối tượng đã chọn" value={pickedItem.payload.fillMode||'outline'} onChange={e=>selectFillMode(e.target.value)}><option value="both">Tô kín + viền</option><option value="only">Chỉ tô kín</option><option value="outline">Chỉ viền</option></select></label>
+          {(pickedItem.payload.fillMode||'outline')!=='outline'&&<label className="selection-control selection-color"><span>MÀU NỀN</span><input type="color" aria-label="Màu nền đối tượng đã chọn" value={pickedItem.payload.fillColor||pickedItem.payload.color||'#6555ED'} onChange={e=>selectFillColor(e.target.value)}/></label>}
+          {['roundRect','roundSquare'].includes(pickedItem.payload.shape)&&<NumericTextInput label="BO GÓC (PX)" value={pickedItem.payload.cornerRadius||16} min={0} max={200} onCommit={value=>applySelectedStyle({cornerRadius:value})}/>}
+        </>}
+        <label className="selection-control selection-color"><span>{pickedItem.kind==='text'?'MÀU CHỮ':'MÀU VIỀN / NÉT'}</span><input type="color" aria-label="Màu đối tượng đã chọn" value={pickedItem.payload.color||'#6555ED'} onChange={e=>chooseColor(e.target.value)}/></label>
+        <button className="selection-action danger" title="Xóa đối tượng đang chọn" onClick={()=>{void erase(pickedItem);setSelected(null);}}><Trash2 size={16}/>Xóa</button>
+      </div>}
       {showTextControls&&<div className="text-format-toolbar">
         <div className="text-format-toolbar-title"><Type size={16}/><strong>{pickedItem?.kind==='text'?'ĐỊNH DẠNG CHỮ ĐÃ CHỌN':'ĐỊNH DẠNG CHỮ MỚI'}</strong>
           <span>{pickedItem?.kind==='text'?'Nhấp đúp vào chữ để sửa nội dung':'Chọn vị trí trên bảng để nhập chữ'}</span>
@@ -497,14 +601,21 @@ export default function BoardEditor({board,profile,notify,connected}) {
       </div>}
     </div>
     {board.is_locked&&!teacher&&<div className="read-only-banner"><LockKeyhole size={16}/> Giáo viên đã khóa bảng này. Bạn vẫn có thể xem và xuất ảnh.</div>}
-    {tool==='eraser'&&<div className="eraser-hint">{eraserMode==='objects'?'Kéo đầu tẩy qua các hình/nét cần xóa; có thể quét nhiều đối tượng cùng lúc.':'Tẩy một phần nét bút hoặc nét đánh dấu; với hình học/chữ sẽ xóa cả đối tượng.'} Chỉ sửa được nét của bạn hoặc nét học sinh nếu bạn là giáo viên.</div>}
     <div className={'canvas-host '+(tool==='hand'?'is-panning':'')} ref={hostRef}>
       <Stage ref={stageRef} width={dims.width} height={dims.height} x={pan.x} y={pan.y} scaleX={zoom} scaleY={zoom}
         draggable={tool==='hand'} onDragEnd={e=>{if(e.target===e.target.getStage())setPan({x:e.target.x(),y:e.target.y()});}}
         onWheel={wheel} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={()=>{pointerUp();setEraserCursor(null);}}>
         <Layer>{items.map(item=><ItemShape key={item.id} item={item} selected={selected===item.id} tool={tool} canMove={editableByMe(item)}
-          onChoose={chooseItem} onMove={(i,pos)=>void patchItem(i,{payload:{...i.payload,...pos}})} onTextEdit={editText}/>)}
-          {draft&&<ItemShape item={{id:'draft',kind:draft.kind,payload:draft.payload}} selected={false} canMove={false} tool="draw" onChoose={()=>{}} onMove={()=>{}} onTextEdit={()=>{}}/>}
+          registerNode={node=>{if(node)itemNodesRef.current.set(item.id,node);else itemNodesRef.current.delete(item.id);}}
+          onChoose={chooseItem} onTransform={transformItem} onMove={(i,pos)=>void patchItem(i,{payload:{...i.payload,...pos}})} onTextEdit={editText}/>)}
+          {draft&&<ItemShape item={{id:'draft',kind:draft.kind,payload:draft.payload}} selected={false} canMove={false} tool="draw" onChoose={()=>{}} onMove={()=>{}} onTextEdit={()=>{}} onTransform={()=>{}}/>}
+          <Transformer ref={transformerRef} rotateEnabled={false} flipEnabled={false} keepRatio={true}
+            enabledAnchors={['top-left','top-right','bottom-left','bottom-right']}
+            anchorSize={10} anchorCornerRadius={3} anchorStroke="#6253DC" anchorFill="#fff"
+            borderStroke="#6253DC" borderDash={[4,4]} padding={7}
+            boundBoxFunc={(oldBox,newBox)=>Math.abs(newBox.width)>9&&Math.abs(newBox.width)<15000&&
+              (Math.abs(oldBox.height)<8||(Math.abs(newBox.height)>9&&Math.abs(newBox.height)<15000))?newBox:oldBox}/>
+
           {tool==='eraser'&&eraserCursor&&<KonvaCircle x={eraserCursor.x} y={eraserCursor.y} radius={eraserRadius} stroke="#e05474" fill="rgba(224,84,116,.12)" dash={[4,4]} strokeWidth={1.2} listening={false}/>}
         </Layer>
       </Stage>

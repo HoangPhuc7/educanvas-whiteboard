@@ -1,3 +1,7 @@
+## Cập nhật v1.3 — Nhân bản và biến đổi đối tượng
+
+Chọn đối tượng chữ, hình học hoặc nét vẽ rồi **Nhân bản** (Ctrl+D/Cmd+D), di chuyển, kéo các góc để thay đổi kích thước; đổi màu viền/nền, cỡ nét, bo góc trực tiếp. Xem [`CAP_NHAT_V1_3.md`](CAP_NHAT_V1_3.md). Không cần thay đổi Supabase.
+
 ## Cập nhật v1.2 — Chữ nâng cao
 
 Thêm lựa chọn font chữ, cỡ 8–160 px, in đậm/nghiêng/gạch chân/gạch ngang, căn lề, màu, độ rộng hộp chữ và giãn dòng. Xem `CAP_NHAT_V1_2.md` để cập nhật GitHub/Vercel. Không cần thay đổi Supabase.
