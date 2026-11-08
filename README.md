@@ -1,4 +1,6 @@
-# EduCanvas — Bảng trắng cộng tác dành cho lớp học
+# EduCanvas — Bảng trắng cộng tác dành cho lớp học (v1.1)
+
+> **Cập nhật công cụ vẽ:** Tô kín hình, nhiều hình bo góc/đa giác, bảng màu tùy ý và hai chế độ tẩy. Nếu đã chạy EduCanvas trên GitHub/Vercel, xem [`CAP_NHAT_V1_1.md`](CAP_NHAT_V1_1.md) để nâng cấp **không làm mất dữ liệu**.
 
 > **Đang nâng cấp từ NétChung?** Nếu bạn đã chạy `supabase/schema.sql` thành công, KHÔNG chạy lại SQL và KHÔNG tạo project Supabase mới. Sao chép file `.env` cũ sang bản EduCanvas, giữ nguyên Supabase URL/publishable key. Xem [`DOI_TEN_TU_NETCHUNG.md`](DOI_TEN_TU_NETCHUNG.md) để chuyển đổi an toàn.
 
@@ -12,7 +14,7 @@ Website bảng trắng **tiếng Việt, responsive**, dành cho **giáo viên**
 | --- | --- |
 | Giáo viên | Tạo lớp, nhận mã lớp 8 ký tự, xem bảng chung và **toàn bộ bảng cá nhân**, viết/vẽ/sửa/xóa vật thể, khóa/mở bảng, xóa toàn bộ bảng |
 | Học sinh | Đăng ký/đăng nhập, nhập mã lớp, xem/vẽ trên bảng chung, có **một bảng cá nhân trong mỗi lớp**, di chuyển hoặc xóa vật thể do chính mình tạo, xem bảng khi bị khóa |
-| Cả hai | Vẽ bút/tô sáng, đoạn thẳng, hình chữ nhật, hình elip, chèn/sửa chữ, chọn/di chuyển vật thể, tẩy, hoàn tác nét của mình, phóng/thu và kéo canvas, xuất PNG vùng đang xem |
+| Cả hai | Vẽ bút/tô sáng, 13 lựa chọn hình học (gồm hình bo góc/đa giác), tô kín hình, chỉnh màu viền và màu nền, chọn/di chuyển vật thể, tẩy quét hoặc tẩy chi tiết nét bút, hoàn tác nét của mình, phóng/thu và kéo canvas, xuất PNG vùng đang xem |
 
 **Đồng bộ:** Supabase Auth (đăng nhập), Postgres (lưu trữ), Realtime Postgres Changes (tự hiện thay đổi trên trình duyệt khác), Row Level Security (RLS) để bảo vệ dữ liệu ở database. Các nét vẽ được lưu thành JSON trong `board_items`. Giao diện bố cục phù hợp desktop, tablet, smartphone.
 
@@ -89,7 +91,7 @@ Không có nút công khai để tự nâng quyền. Nếu có nhiều giáo vi�
 5. Giáo viên dùng **Khóa bảng** để không cho học sinh chỉnh sửa, rồi mở lại khi cần.
 6. Chọn **Xuất PNG** để tải ảnh phần bảng hiện có trên màn hình.
 
-**Công cụ:** Bút, bút đánh dấu, tẩy, nét thẳng, hình chữ nhật, hình elip, văn bản, chọn/kéo đối tượng và bàn tay di chuyển khung nhìn. Cuộn chuột trên canvas để phóng to/thu nhỏ; chạm các nút zoom trên điện thoại; `Ctrl+Z`/`Cmd+Z` để hoàn tác đối tượng gần nhất do bạn tạo. Double-click/double-tap vào đối tượng văn bản khi đang dùng công cụ chọn để sửa chữ.
+**Công cụ:** Bút, bút đánh dấu, tẩy quét đối tượng/tẩy chi tiết nét bút, 13 loại hình học, văn bản, chọn/kéo đối tượng và bàn tay di chuyển khung nhìn. Hình mới mặc định tô kín; có chế độ chỉ viền hoặc chỉ tô, chọn màu tự do và riêng màu viền/nền. Để đổi màu hình đã vẽ, chọn hình rồi nhấn **Đổi màu hình đang chọn**. Cuộn chuột trên canvas để phóng to/thu nhỏ; chạm các nút zoom trên điện thoại; `Ctrl+Z`/`Cmd+Z` để hoàn tác đối tượng gần nhất do bạn tạo. Double-click/double-tap vào đối tượng văn bản khi đang dùng công cụ chọn để sửa chữ.
 
 ## 5. Đưa source lên GitHub
 
@@ -155,12 +157,15 @@ educanvas-whiteboard/
 │   ├── App.jsx
 │   ├── styles.css
 │   ├── lib/supabase.js
+│   ├── lib/boardGeometry.js
 │   └── components/
 │       ├── Auth.jsx
 │       ├── Dashboard.jsx
 │       ├── Classroom.jsx
 │       ├── BoardEditor.jsx
 │       └── UI.jsx
+├── tests/boardGeometry.test.mjs
+├── CAP_NHAT_V1_1.md
 ├── supabase/schema.sql
 ├── vercel.json
 └── vite.config.js
@@ -177,7 +182,7 @@ educanvas-whiteboard/
 
 Database tự tạo hồ sơ khi đăng ký, tự tạo bảng chung khi tạo lớp. **RLS** kiểm soát SELECT/INSERT/UPDATE; khóa bảng được thực thi ở DB. Bảng cá nhân không bị lộ khi nhập trực tiếp UUID.
 
-## 8. Giới hạn của phiên bản 1.0
+## 8. Giới hạn của phiên bản 1.1
 
 - Đây là **MVP hoạt động có backend**, không phải bản sao đầy đủ Nuxoboard: **chưa có tải PDF/PowerPoint, chat, gọi video, AI, bảng điều khiển quản trị giáo viên, hình ảnh upload, hệ thống bài tập hay lịch sử phiên bản nâng cao**.
 - Mỗi nét được gửi khi **kết thúc thao tác vẽ**. Không phát từng chuyển động con trỏ trực tiếp trong thời gian vẽ. Hai người cùng cập nhật **một** vật thể gần như đồng thời sẽ theo cơ chế **lần ghi cuối cùng thắng**; các nét vẽ độc lập vẫn được cộng tác.
@@ -198,4 +203,3 @@ Chạy `npm run build` trên máy có internet sau `npm install`. Bản mã ngu�
 - [React Konva](https://github.com/konvajs/react-konva)
 
 **Giấy phép:** MIT (xem `LICENSE`).
-"# educanvas-whiteboard" 
