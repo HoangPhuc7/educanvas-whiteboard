@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Group, Line, Arrow, Rect, Ellipse, Circle as KonvaCircle, Text as CanvasText } from 'react-konva';
-import { Circle, Download, Eraser, Hand, Highlighter, LockKeyhole, Maximize, MousePointer2, Pencil, RotateCcw, Shapes, Trash2, Type, ZoomIn, ZoomOut } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, Bold, Circle, Download, Eraser, Hand, Highlighter, Italic, LockKeyhole, Maximize, MousePointer2, Pencil, RotateCcw, Shapes, Strikethrough, Trash2, Type, Underline, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase, errText } from '../lib/supabase.js';
 import { Modal } from './UI.jsx';
 import { clamp, eraseStroke, polygonPoints, starPoints, strokeSegments, sweepHitsItem } from '../lib/boardGeometry.js';
+import { DEFAULT_TEXT_STYLE, FONT_FAMILIES, readTextStyle, sanitizeTextStyle, konvaTextProps } from '../lib/textFormatting.js';
 
 const COLORS = [
   '#6555ED','#191F38','#FFFFFF','#000000','#EF4444','#F97316','#FACC15','#22C55E',
@@ -89,7 +90,7 @@ function ItemShape({item,selected,canMove,tool,onChoose,onMove,onTextEdit}) {
     return <Rect {...base} {...style} width={w} height={h} cornerRadius={['roundRect','roundSquare'].includes(p.shape)?Math.min(p.cornerRadius||16,w/2,h/2):0}/>;
   }
   if(item.kind==='ellipse') return <Ellipse {...base} {...shapeStyle(p)} radiusX={p.radiusX||1} radiusY={p.radiusY||1}/>;
-  if(item.kind==='text') return <CanvasText {...base} text={p.text||''} fill={p.color||'#191F38'} fontSize={p.fontSize||24} fontFamily="Be Vietnam Pro, Arial" lineHeight={1.4}/>;
+  if(item.kind==='text') return <CanvasText {...base} text={p.text||''} {...konvaTextProps(p)}/>;
   return null;
 }
 
@@ -115,6 +116,66 @@ function extendDraft(draft,start,pos) {
   return draft;
 }
 
+/** Format controls appear in the main toolbar and in the text creation/edit dialog. */
+function NumericTextInput({label,value,min,max,onCommit,disabled}) {
+  const [input,setInput]=useState(String(value));
+  useEffect(()=>setInput(String(value)),[value]);
+  function commit(){
+    const numeric=Number(input);
+    if(Number.isFinite(numeric)&&input.trim()!=='')onCommit(Math.min(max,Math.max(min,numeric)));
+    else setInput(String(value));
+  }
+  return <label className="text-format-number" title={label}><span>{label}</span>
+    <input type="number" aria-label={label} min={min} max={max} step="1" value={input}
+      disabled={disabled} onChange={e=>setInput(e.target.value)} onBlur={commit}
+      onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}}/>
+  </label>;
+}
+function TextFormatControls({style,onChange,disabled=false,layout='toolbar'}) {
+  const toggles=[
+    {name:'bold',label:'In đậm',Icon:Bold},
+    {name:'italic',label:'In nghiêng',Icon:Italic},
+    {name:'underline',label:'Gạch chân',Icon:Underline},
+    {name:'strike',label:'Gạch ngang chữ',Icon:Strikethrough},
+  ];
+  const aligns=[
+    {name:'left',label:'Căn trái',Icon:AlignLeft},
+    {name:'center',label:'Căn giữa',Icon:AlignCenter},
+    {name:'right',label:'Căn phải',Icon:AlignRight},
+  ];
+  return <div className={'text-format-controls text-format-'+layout}>
+    <label className="text-format-select"><span>PHÔNG CHỮ</span>
+      <select aria-label="Phông chữ" disabled={disabled} value={style.fontFamily} onChange={e=>onChange({fontFamily:e.target.value})}>
+        {FONT_FAMILIES.map(f=><option key={f} value={f}>{f}</option>)}
+      </select>
+    </label>
+    <NumericTextInput label="CỠ CHỮ (PX)" value={style.fontSize} min={8} max={160} disabled={disabled} onCommit={fontSize=>onChange({fontSize})}/>
+    <div className="text-format-buttons" aria-label="Định dạng văn bản">
+      {toggles.map(({name,label,Icon})=><button type="button" key={name} title={label} aria-label={label}
+        disabled={disabled} aria-pressed={!!style[name]} className={'text-format-button '+(style[name]?'is-active':'')}
+        onClick={()=>onChange({[name]:!style[name]})}><Icon size={17}/></button>)}
+    </div>
+    <div className="text-format-buttons" aria-label="Căn lề văn bản">
+      {aligns.map(({name,label,Icon})=><button type="button" key={name} title={label} aria-label={label}
+        disabled={disabled} aria-pressed={style.align===name} className={'text-format-button '+(style.align===name?'is-active':'')}
+        onClick={()=>onChange({align:name})}><Icon size={17}/></button>)}
+    </div>
+    <label className="text-format-color"><span>MÀU CHỮ</span><input type="color" aria-label="Chọn màu chữ"
+      value={style.color} disabled={disabled} onChange={e=>onChange({color:e.target.value})}/></label>
+    <NumericTextInput label="RỘNG (PX)" value={style.width} min={120} max={1000} disabled={disabled} onCommit={width=>onChange({width})}/>
+    <label className="text-format-select"><span>GIÃN DÒNG</span>
+      <select aria-label="Giãn dòng" disabled={disabled} value={style.lineHeight} onChange={e=>onChange({lineHeight:Number(e.target.value)})}>
+        {[1,1.2,1.4,1.6,1.8,2,2.5].map(x=><option key={x} value={x}>{x}×</option>)}
+      </select>
+    </label>
+    <label className="text-format-select"><span>GIÃN KÝ TỰ</span>
+      <select aria-label="Giãn ký tự" disabled={disabled} value={style.letterSpacing} onChange={e=>onChange({letterSpacing:Number(e.target.value)})}>
+        {[0,1,2,3,4,6,8,12].map(x=><option key={x} value={x}>{x}px</option>)}
+      </select>
+    </label>
+  </div>;
+}
+
 export default function BoardEditor({board,profile,notify,connected}) {
   const teacher=profile.role==='teacher';
   const canWrite=teacher||!board.is_locked;
@@ -136,6 +197,7 @@ export default function BoardEditor({board,profile,notify,connected}) {
   const [pan,setPan]=useState({x:72,y:55});
   const [dims,setDims]=useState({width:800,height:570});
   const [textDraft,setTextDraft]=useState(null);
+  const [textPreset,setTextPreset]=useState(DEFAULT_TEXT_STYLE);
   const [textValue,setTextValue]=useState('');
   const [saving,setSaving]=useState(false);
   const [syncStatus,setSyncStatus]=useState('loading');
@@ -270,7 +332,7 @@ export default function BoardEditor({board,profile,notify,connected}) {
       gestureRef.current={kind:'erase',radius:eraserRadius,changes:new Map(),from:pos};
       setEraserCursor(pos);sweepEraser(pos,pos);return;
     }
-    if(tool==='text'){setTextDraft({x:pos.x,y:pos.y,item:null});setTextValue('');return;}
+    if(tool==='text'){setTextDraft({x:pos.x,y:pos.y,item:null,style:{...textPreset,color}});setTextValue('');return;}
     const d=makeDraft(tool,pos,{color,size,fillColor:fillLinked?color:fillColor,fillStyle,fillOpacity,cornerRadius});
     if(!d)return;
     gestureRef.current={kind:'draw',start:pos};draftRef.current=d;setDraft(d);
@@ -298,14 +360,35 @@ export default function BoardEditor({board,profile,notify,connected}) {
     void addItem(d.kind,d.payload);
   }
   function chooseItem(item){setSelected(item.id);}
-  function editText(item){setTextDraft({item,x:item.payload.x,y:item.payload.y});setTextValue(item.payload.text);}
+  function editText(item){
+    if(!editableByMe(item))return;
+    setTextDraft({item,x:item.payload.x,y:item.payload.y,style:readTextStyle(item.payload)});
+    setTextValue(item.payload.text||'');
+  }
   function saveText(e){
-    e.preventDefault();const text=textValue.trim().slice(0,2000);
+    e.preventDefault();if(!textDraft)return;
+    const text=textValue.trim().slice(0,2000);
     if(text){
-      if(textDraft.item)void patchItem(textDraft.item,{payload:{...textDraft.item.payload,text}});
-      else void addItem('text',{x:textDraft.x,y:textDraft.y,text,fontSize:22+size,color});
+      const style=sanitizeTextStyle(textDraft.style);
+      if(textDraft.item)void patchItem(textDraft.item,{payload:{...textDraft.item.payload,...style,text}});
+      else {
+        void addItem('text',{x:textDraft.x,y:textDraft.y,text,...style});
+        setTextPreset(style);
+        setColor(style.color);
+      }
     }
     setTextDraft(null);setTextValue('');
+  }
+  function changeTextStyle(patch){
+    const item=items.find(i=>i.id===selected);
+    if(item?.kind==='text'){
+      if(!editableByMe(item))return;
+      const next=sanitizeTextStyle({...readTextStyle(item.payload),...patch});
+      void patchItem(item,{payload:{...item.payload,...next}});
+    }else{
+      setTextPreset(current=>sanitizeTextStyle({...current,...patch}));
+    }
+    if(patch.color)setColor(patch.color);
   }
   function chooseColor(newColor){setColor(newColor);if(fillLinked)setFillColor(newColor);}
   function styleSelected(){
@@ -342,6 +425,8 @@ export default function BoardEditor({board,profile,notify,connected}) {
     setSaving(false);if(error)notify(errText(error),'error');else{setItems([]);notify('Đã xóa toàn bộ nội dung bảng.','success');}
   }
   const pickedItem=items.find(i=>i.id===selected);
+  const showTextControls=tool==='text'||pickedItem?.kind==='text';
+  const currentTextStyle=pickedItem?.kind==='text'?readTextStyle(pickedItem.payload):{...textPreset,color};
   const isShape=SHAPE_KEYS.has(tool);
   const rounded=['roundRect','roundSquare'].includes(tool);
 
@@ -402,8 +487,14 @@ export default function BoardEditor({board,profile,notify,connected}) {
           </div>
           <div className="style-section"><span className="toolbar-heading">BÁN KÍNH TẨY</span><div className="brush-control"><input type="range" aria-label="Bán kính đầu tẩy" value={eraserRadius} min="3" max="45" onChange={e=>setEraserRadius(Number(e.target.value))}/><span>{eraserRadius}px</span></div></div>
         </>}
-        {pickedItem&&editableByMe(pickedItem)&&<button className="apply-style" title="Áp dụng màu, kiểu tô và độ dày hiện tại cho đối tượng đã chọn" onClick={styleSelected}>Đổi màu hình đang chọn</button>}
+        {pickedItem&&pickedItem.kind!=='text'&&editableByMe(pickedItem)&&<button className="apply-style" title="Áp dụng màu, kiểu tô và độ dày hiện tại cho đối tượng đã chọn" onClick={styleSelected}>Đổi màu hình đang chọn</button>}
       </div>
+      {showTextControls&&<div className="text-format-toolbar">
+        <div className="text-format-toolbar-title"><Type size={16}/><strong>{pickedItem?.kind==='text'?'ĐỊNH DẠNG CHỮ ĐÃ CHỌN':'ĐỊNH DẠNG CHỮ MỚI'}</strong>
+          <span>{pickedItem?.kind==='text'?'Nhấp đúp vào chữ để sửa nội dung':'Chọn vị trí trên bảng để nhập chữ'}</span>
+        </div>
+        <TextFormatControls style={currentTextStyle} onChange={changeTextStyle} disabled={!canWrite||(pickedItem?.kind==='text'&&!editableByMe(pickedItem))}/>
+      </div>}
     </div>
     {board.is_locked&&!teacher&&<div className="read-only-banner"><LockKeyhole size={16}/> Giáo viên đã khóa bảng này. Bạn vẫn có thể xem và xuất ảnh.</div>}
     {tool==='eraser'&&<div className="eraser-hint">{eraserMode==='objects'?'Kéo đầu tẩy qua các hình/nét cần xóa; có thể quét nhiều đối tượng cùng lúc.':'Tẩy một phần nét bút hoặc nét đánh dấu; với hình học/chữ sẽ xóa cả đối tượng.'} Chỉ sửa được nét của bạn hoặc nét học sinh nếu bạn là giáo viên.</div>}
@@ -421,6 +512,21 @@ export default function BoardEditor({board,profile,notify,connected}) {
       <div className="canvas-bottom-left"><span className={connected&&itemsConnected?'saved-indicator':'offline-indicator'}/><span>{syncStatus==='loading'?'Đang tải nét vẽ':syncStatus==='saving'?'Đang lưu...':syncStatus==='error'?'Lỗi lưu dữ liệu':connected&&itemsConnected?'Đã lưu & đồng bộ':'Chưa kết nối realtime'}</span><i>·</i><span>{items.length} đối tượng</span></div>
       <div className="zoom-controls"><button onClick={()=>applyZoom(1/1.2)} title="Thu nhỏ" aria-label="Thu nhỏ"><ZoomOut size={18}/></button><span>{Math.round(zoom*100)}%</span><button onClick={()=>applyZoom(1.2)} title="Phóng to" aria-label="Phóng to"><ZoomIn size={18}/></button><button onClick={resetView} title="Đặt lại khung nhìn" aria-label="Đặt lại khung nhìn"><Maximize size={17}/></button></div>
     </div>
-    {textDraft&&<Modal title={textDraft.item?'Chỉnh sửa văn bản':'Thêm văn bản vào bảng'} onClose={()=>setTextDraft(null)} narrow><form className="modal-form" onSubmit={saveText}><label>Nội dung<textarea autoFocus rows={4} maxLength={2000} value={textValue} onChange={e=>setTextValue(e.target.value)} placeholder="Nhập nội dung để chèn..." required/></label><div className="modal-actions"><button type="button" className="ghost-btn" onClick={()=>setTextDraft(null)}>Hủy</button><button className="primary-btn" type="submit">{textDraft.item?'Lưu thay đổi':'Chèn văn bản'}</button></div></form></Modal>}
+    {textDraft&&<Modal title={textDraft.item?'Chỉnh sửa văn bản':'Thêm văn bản vào bảng'} onClose={()=>setTextDraft(null)}>
+      <form className="modal-form text-edit-form" onSubmit={saveText}>
+        <TextFormatControls layout="dialog" style={textDraft.style} onChange={patch=>setTextDraft(current=>({...current,style:sanitizeTextStyle({...current.style,...patch})}))}/>
+        <label>Nội dung
+          <textarea autoFocus rows={4} maxLength={2000} value={textValue}
+            onChange={e=>setTextValue(e.target.value)} placeholder="Nhập nội dung để chèn..." required
+            style={{fontSize:Math.min(textDraft.style.fontSize,38),fontFamily:textDraft.style.fontFamily,
+              fontWeight:textDraft.style.bold?'bold':'normal',fontStyle:textDraft.style.italic?'italic':'normal',
+              textDecoration:[textDraft.style.underline?'underline':'',textDraft.style.strike?'line-through':''].filter(Boolean).join(' '),
+              textAlign:textDraft.style.align,color:textDraft.style.color,lineHeight:textDraft.style.lineHeight}}/>
+        </label>
+        <p className="text-format-help">Định dạng áp dụng cho toàn bộ hộp chữ. Chọn công cụ mũi tên rồi nhấp đúp để sửa nội dung và kiểu chữ.</p>
+        <div className="modal-actions"><button type="button" className="ghost-btn" onClick={()=>setTextDraft(null)}>Hủy</button>
+          <button className="primary-btn" type="submit">{textDraft.item?'Lưu thay đổi':'Chèn văn bản'}</button></div>
+      </form>
+    </Modal>}
   </div>;
 }

@@ -1,3 +1,7 @@
+## Cập nhật v1.2 — Chữ nâng cao
+
+Thêm lựa chọn font chữ, cỡ 8–160 px, in đậm/nghiêng/gạch chân/gạch ngang, căn lề, màu, độ rộng hộp chữ và giãn dòng. Xem `CAP_NHAT_V1_2.md` để cập nhật GitHub/Vercel. Không cần thay đổi Supabase.
+
 # EduCanvas — Bảng trắng cộng tác dành cho lớp học (v1.1)
 
 > **Cập nhật công cụ vẽ:** Tô kín hình, nhiều hình bo góc/đa giác, bảng màu tùy ý và hai chế độ tẩy. Nếu đã chạy EduCanvas trên GitHub/Vercel, xem [`CAP_NHAT_V1_1.md`](CAP_NHAT_V1_1.md) để nâng cấp **không làm mất dữ liệu**.

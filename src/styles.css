@@ -52,3 +52,36 @@ button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:
 .eraser-hint{font-size:11px;line-height:1.5;color:#895671;background:#fff0f6;padding:7px 17px;border-bottom:1px solid #fce2ed}
 .canvas-host:has(.konvajs-content) {min-height:100px}
 @media(max-width:680px){.toolbar-main,.toolbar-style{padding:8px 10px;gap:9px}.toolbar-main{min-height:62px}.toolbar-style{min-height:60px}.toolbar-style .color-swatch{width:22px;height:22px}.shape-picker{min-width:135px}.shape-picker select{min-width:93px;font-size:11px}.eraser-hint{font-size:10px;padding:6px 9px}}
+
+/* EduCanvas v1.2 — text formatting for board items, responsive on narrow screens */
+.text-format-toolbar{display:flex;align-items:center;gap:15px;padding:10px 17px;border-top:1px solid #e7e6f8;background:#f6f4ff;min-width:0}
+.text-format-toolbar-title{display:flex;flex-direction:column;gap:3px;flex-shrink:0;min-width:139px;color:#6555d4}
+.text-format-toolbar-title svg{display:none}
+.text-format-toolbar-title strong{font-size:9px;font-weight:800;letter-spacing:.5px}
+.text-format-toolbar-title span{font-size:9px;color:#8b8aa6;max-width:190px;line-height:1.4}
+.text-format-controls{display:flex;align-items:flex-end;gap:9px;min-width:0}
+.text-format-toolbar .text-format-controls{overflow-x:auto;flex:1;padding:3px 0;scrollbar-width:thin}
+.text-format-select,.text-format-number,.text-format-color{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:0;flex-shrink:0}
+.text-format-select>span,.text-format-number>span,.text-format-color>span{font-size:9px;font-weight:800;color:#7e8098;white-space:nowrap;letter-spacing:.3px}
+.text-format-select select,.text-format-number input{height:35px;padding:6px 9px;border:1px solid #dcdff0;border-radius:9px;color:#3c4460;background:#fff;font-size:11px;font-weight:700;outline:none}
+.text-format-select select:focus-visible,.text-format-number input:focus-visible{outline:2px solid #8c7cff;outline-offset:1px}
+.text-format-select select{width:142px;cursor:pointer}
+.text-format-number input{width:83px}
+.text-format-buttons{display:flex;align-items:center;gap:2px;padding:3px;border:1px solid #e1dff4;border-radius:10px;background:#fff;flex-shrink:0}
+.text-format-button{display:grid;place-items:center;width:31px;height:30px;color:#6d728b;border-radius:7px;transition:background .12s,color .12s}
+.text-format-button:hover:not(:disabled){background:#f0efff;color:#5140d0}
+.text-format-button.is-active{background:#6555ed;color:#fff}
+.text-format-button:focus-visible{outline:2px solid #4d42c4;outline-offset:1px}
+.text-format-color input{height:35px;width:43px;padding:2px;border:1px solid #dcdff0;border-radius:9px;cursor:pointer;background:white}
+.text-edit-form{gap:14px}
+.text-edit-form .text-format-dialog{display:flex;flex-wrap:wrap;gap:10px;padding:13px;border-radius:13px;background:#f8f7ff;border:1px solid #ebe8fd}
+.text-edit-form .text-format-dialog .text-format-select select{width:154px}
+.text-edit-form textarea{min-height:135px;max-height:330px;transition:font-size .14s}
+.text-format-help{color:#83899d;font-size:11px;line-height:1.7;margin:0}
+@media(max-width:800px){
+  .text-format-toolbar{display:block;padding:8px 10px}
+  .text-format-toolbar-title{display:flex;flex-direction:row;gap:7px;align-items:center;margin-bottom:7px}
+  .text-format-toolbar-title strong{font-size:9px}
+  .text-format-toolbar-title span{font-size:9px;max-width:none}
+  .text-format-toolbar .text-format-controls{width:100%}
+}
