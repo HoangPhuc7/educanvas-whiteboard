@@ -4,12 +4,12 @@
 
 Trong mỗi lớp học, thanh bên trái có nút **Sinh hoạt lớp** (cạnh Bảng trắng). Module mới hỗ trợ 6 vai trò:
 
-1. Lớp trưởng
-2. Lớp phó
-3. Bí thư
-4. Tổ 1
-5. Tổ 2
-6. Tổ 3
+1. Tổ 1
+2. Tổ 2
+3. Tổ 3
+4. Lớp phó
+5. Bí thư
+6. Lớp trưởng
 
 Mỗi báo cáo có đúng 3 phần: **Tình hình chung**, **Ưu điểm**, **Hạn chế & vi phạm**. Nội dung chữ lưu trong Supabase; mỗi phiếu có trạng thái chưa có nội dung / đang soạn / đã nộp. Giáo viên có thể tạo nhiều buổi sinh hoạt (theo tuần), phân công học sinh, xem toàn bộ, khóa/mở và chiếu từng báo cáo trên máy chiếu.
 
@@ -58,7 +58,7 @@ Truy cập `http://localhost:5173`; đăng nhập giáo viên và mở lớp đ�
 
 1. **Trước giờ sinh hoạt:** Giáo viên tạo buổi mới, đặt chủ đề tuần, phân công 6 học sinh. Học sinh nhập 3 phần và chọn **Nộp báo cáo**.
 2. **2 phút mở đầu:** Giáo viên mở tổng quan, cho cả lớp thấy tiến độ 6/6 báo cáo.
-3. **12–15 phút báo cáo:** Bật **Trình chiếu**, báo cáo lần lượt từ lớp trưởng → lớp phó → bí thư → tổ 1, 2, 3. Có đồng hồ 2 phút cho mỗi lượt, điều hướng bằng phím ← →, Esc để thoát.
+3. **12–15 phút báo cáo:** Bật **Trình chiếu**, báo cáo lần lượt từ tổ 1 → tổ 2 → tổ 3 → lớp phó → bí thư → lớp trưởng. Có đồng hồ 2 phút cho mỗi lượt, điều hướng bằng phím ← →, Esc để thoát.
 4. **5 phút thảo luận:** Chọn những vấn đề cần cải thiện và đề xuất giải pháp. Nên tập trung giải pháp thay vì nêu tên học sinh vi phạm trước tập thể.
 5. **3 phút kết thúc:** Sao chép tổng hợp báo cáo làm biên bản, thống nhất mục tiêu tuần tiếp theo, giáo viên chọn **Khóa nhận báo cáo**.
 

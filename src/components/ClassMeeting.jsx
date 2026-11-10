@@ -125,7 +125,7 @@ export default function ClassMeeting({ room, profile, notify }) {
     if (!stage) return;
     const onKey = (e) => {
       if (e.key === 'Escape') setStage(false);
-      else if (e.key === 'ArrowRight') setStageIndex(i => Math.min(5, i + 1));
+      else if (e.key === 'ArrowRight') setStageIndex(i => Math.min(MEETING_ROLES.length - 1, i + 1));
       else if (e.key === 'ArrowLeft') setStageIndex(i => Math.max(0, i - 1));
     };
     window.addEventListener('keydown', onKey);
@@ -262,7 +262,8 @@ export default function ClassMeeting({ room, profile, notify }) {
             const hasText = Boolean(item && (item.general.trim() || item.strengths.trim() || item.limitations.trim()));
             const own = item?.assigned_to === profile.id;
             const assigned = item?.assigned_to ? (members.find(m=>m.id===item.assigned_to)?.full_name || (own ? profile.full_name : 'Đã phân công')) : 'Chưa phân công';
-            const Icon = [ShieldCheck, TrendingUp, Mic2, Users, Users, Users][index];
+            const roleIcons = { team_1: Users, team_2: Users, team_3: Users, vice_leader: TrendingUp, secretary: Mic2, class_leader: ShieldCheck };
+            const Icon = roleIcons[r.key];
             return <article key={r.key} className={'meeting-role-card ' + r.theme}>
               <div className="meeting-card-top"><div className="meeting-card-role-icon"><Icon size={23}/></div><span className={'meeting-card-status ' + (item?.submitted_at ? 'done' : hasText ? 'draft' : 'idle')}>{item?.submitted_at ? 'Đã nộp' : hasText ? 'Đang soạn' : 'Chưa có nội dung'}</span></div>
               <div className="meeting-card-index">{String(index + 1).padStart(2,'0')} / 06</div>
@@ -303,7 +304,7 @@ export default function ClassMeeting({ room, profile, notify }) {
           <div className="meeting-slide-footer"><span><Sparkles size={16}/> Lắng nghe để cùng tiến bộ</span><div className="meeting-stage-clock"><Clock3 size={17}/><span>{String(Math.floor(seconds/60)).padStart(2,'0')}:{String(seconds%60).padStart(2,'0')}</span><button onClick={()=>setRunning(s=>!s)}>{running?'Tạm dừng':'Bắt đầu'}</button><button onClick={()=>{setSeconds(120);setRunning(false);}}>Đặt lại</button></div></div>
         </div>;
       })()}
-      <footer className="meeting-stage-controls"><button onClick={()=>setStagePage(Math.max(0,stageIndex-1))} disabled={stageIndex===0}><ChevronLeft size={19}/> Trước</button><div>{MEETING_ROLES.map((r,i)=><button key={r.key} onClick={()=>setStagePage(i)} aria-label={'Báo cáo ' + r.label} className={i===stageIndex?'selected':''}/>)}</div><button onClick={()=>stageIndex===5?setStage(false):setStagePage(stageIndex+1)}>{stageIndex===5?'Kết thúc':'Tiếp'} <ChevronRight size={19}/></button></footer>
+      <footer className="meeting-stage-controls"><button onClick={()=>setStagePage(Math.max(0,stageIndex-1))} disabled={stageIndex===0}><ChevronLeft size={19}/> Trước</button><div>{MEETING_ROLES.map((r,i)=><button key={r.key} onClick={()=>setStagePage(i)} aria-label={'Báo cáo ' + r.label} className={i===stageIndex?'selected':''}/>)}</div><button onClick={()=>stageIndex===MEETING_ROLES.length-1?setStage(false):setStagePage(stageIndex+1)}>{stageIndex===MEETING_ROLES.length-1?'Kết thúc':'Tiếp'} <ChevronRight size={19}/></button></footer>
     </div>}
 
 

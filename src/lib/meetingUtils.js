@@ -1,10 +1,12 @@
+// Thu tu nhat quan tren 6 the bao cao, che do trinh chieu va bien ban tong hop.
+// role_key khong thay doi de bao toan phan cong/noi dung da luu trong Supabase.
 export const MEETING_ROLES = [
-  { key: 'class_leader', label: 'Lớp trưởng', caption: 'Tổng quan nền nếp và hoạt động lớp', theme: 'role-violet' },
-  { key: 'vice_leader', label: 'Lớp phó', caption: 'Học tập, phong trào và tiến bộ', theme: 'role-sky' },
-  { key: 'secretary', label: 'Bí thư', caption: 'Đoàn thể, tinh thần và gắn kết', theme: 'role-rose' },
   { key: 'team_1', label: 'Tổ 1', caption: 'Tiếng nói của tập thể tổ 1', theme: 'role-amber' },
   { key: 'team_2', label: 'Tổ 2', caption: 'Tiếng nói của tập thể tổ 2', theme: 'role-mint' },
-  { key: 'team_3', label: 'Tổ 3', caption: 'Tiếng nói của tập thể tổ 3', theme: 'role-indigo' }
+  { key: 'team_3', label: 'Tổ 3', caption: 'Tiếng nói của tập thể tổ 3', theme: 'role-indigo' },
+  { key: 'vice_leader', label: 'Lớp phó', caption: 'Học tập, phong trào và tiến bộ', theme: 'role-sky' },
+  { key: 'secretary', label: 'Bí thư', caption: 'Đoàn thể, tinh thần và gắn kết', theme: 'role-rose' },
+  { key: 'class_leader', label: 'Lớp trưởng', caption: 'Tổng quan nền nếp và hoạt động lớp', theme: 'role-violet' }
 ];
 export const safeMeetingText = value => String(value ?? '').slice(0,4000);
 export function countMeetingProgress(reports=[]) {

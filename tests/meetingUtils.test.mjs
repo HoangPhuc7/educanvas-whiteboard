@@ -5,7 +5,8 @@ import { MEETING_ROLES, safeMeetingText, countMeetingProgress, formatMeetingPlai
 test('six distinct roles in required order', () => {
   assert.equal(MEETING_ROLES.length, 6);
   assert.equal(new Set(MEETING_ROLES.map(x=>x.key)).size, 6);
-  assert.deepEqual(MEETING_ROLES.map(x=>x.label), ['Lớp trưởng','Lớp phó','Bí thư','Tổ 1','Tổ 2','Tổ 3']);
+  assert.deepEqual(MEETING_ROLES.map(x=>x.key), ['team_1','team_2','team_3','vice_leader','secretary','class_leader']);
+  assert.deepEqual(MEETING_ROLES.map(x=>x.label), ['Tổ 1','Tổ 2','Tổ 3','Lớp phó','Bí thư','Lớp trưởng']);
 });
 test('count progress separately for assignments, drafts and submissions', () => {
   assert.deepEqual(countMeetingProgress([
@@ -26,4 +27,11 @@ test('summary includes 6 reports and all three headings', () => {
   assert.equal((summary.match(/Tình hình chung:/g)||[]).length,6);
   assert.equal((summary.match(/Ưu điểm:/g)||[]).length,6);
   assert.equal((summary.match(/Hạn chế & vi phạm:/g)||[]).length,6);
+});
+
+test('summary reports follow team 1 -> team 2 -> team 3 -> vice leader -> secretary -> class leader', () => {
+  const summary = formatMeetingPlainText({title:'Tuần 12'}, {});
+  const locations = MEETING_ROLES.map(r => summary.indexOf('\n' + r.label.toUpperCase() + '\n'));
+  assert.ok(locations.every(x => x >= 0));
+  assert.deepEqual([...locations].sort((a,b)=>a-b), locations);
 });
